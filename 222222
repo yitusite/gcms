@@ -1,0 +1,187 @@
+@{
+    ViewBag.Title = @Html.Lang("HotelMap_0001");
+    Layout = "~/Views/Shared/_NoHeadLayout.cshtml";
+}
+@{var baseModel = new GTOW.Web.Models.BaseModel();}
+
+@Styles.Render("~/Content/css")
+@Styles.Render("~/Content/map_circum/css")
+@Styles.Render("~/Content/pagination/css")
+@Scripts.Render("~/bundles/jquery")
+<script src="http://api.map.baidu.com/api?v=1.5&ak=Rm8xXAoU908n0UnI1i8pmuBS" type="text/javascript"></script>
+@Scripts.Render("~/bundles/common")
+@Scripts.Render("~/bundles/pagination")
+
+<div id="mapDialog" class="map_pop">
+
+    <div id="J_mapBox" class="map_box">
+        <div id="mapContent" class="map_content" style="width: 790px; height: 600px;">
+        </div>
+        <div id="J_mapSide" class="map_side" style="overflow-y: auto;">
+
+            <div id="sort_box" class="side_filter">
+                <ul class="side_filter_box">
+                    <li data-mark="1" class="selected"><a href="javascript:void(0);">@Html.Lang("HotelMap_0002")</a></li>
+                    <li data-mark="3"><a href="javascript:void(0);">@Html.Lang("HotelMap_0003")</a></li>
+                    <li data-mark="4"><a href="javascript:void(0);">@Html.Lang("HotelMap_0004")</a></li>
+                    <li data-mark="5"><a href="javascript:void(0);">@Html.Lang("HotelMap_0005")</a></li>
+                    <li data-mark="6"><a href="javascript:void(0);">@Html.Lang("HotelMap_0006")</a></li>
+                    <li data-mark="7"><a href="javascript:void(0);">@Html.Lang("HotelMap_0007")</a></li>
+
+                </ul>
+            </div>
+            <div class="side_list">
+            </div>
+
+            <input type="hidden" id="pageSize" name="pageSize" value="6" />
+            <input type="hidden" id="pageIndex" name="pageSize" value="0" />
+            <div id="p" class="pagination"></div>
+        </div>
+
+    </div>
+</div>
+<input type="hidden" id="LanguageType" name="LanguageType" value="@baseModel.CurrentLanguage" />
+@if (baseModel.CurrentLanguage == GTOW.Common.LanguageType.CHS)
+{
+    <script src="http://api.map.baidu.com/api?v=1.5&ak=Rm8xXAoU908n0UnI1i8pmuBS" type="text/javascript"></script>
+}
+else
+{
+    <script type="text/javascript" src="http://maps.googleapis.com/maps/api/js?key=AIzaSyDGKzDTT3cBcn7tbYNt9ZxzkMtNInbXE3M&sensor=true&language=en"></script>
+    @Scripts.Render("~/bundles/labelmarker")
+    <style type="text/css">
+        .labels {
+            color: red;
+            background-color: white;
+            font-family: "Lucida Grande", "Arial", sans-serif;
+            font-size: 10px;
+            font-weight: bold;
+            text-align: center;
+            width: 140px;
+            border: 2px solid black;
+            white-space: nowrap;
+        }
+    </style>
+}
+
+
+<script type="text/javascript">
+
+    $(document).ready(function () {
+        var cityId = '@ViewData["cityId"]';
+        var hotelCode = '@ViewData["hotelCode"]';
+        var pointX = Number('@ViewData["pointX"]');
+        var pointY = Number('@ViewData["pointY"]');
+        var map;
+        var LanguageType;
+        
+        LanguageType = $('#LanguageType').val();
+        if (typeof LanguageType === 'undefined' || !LanguageType || LanguageType == '') {
+            LanguageType = 'CHS';
+        }
+
+        map = $.fn.createMap('mapContent', LanguageType, 15, null);
+
+        if (map) {
+            $.fn.addHotelMarker(map, LanguageType, 1, '@Html.Lang("HotelMap_0008")', pointX, pointY);
+        }
+
+        $('.side_filter_box').on('click', 'li', function () {
+            $('.side_filter_box li').removeClass('selected');
+            $(this).addClass('selected');
+            $('#pageIndex').val(0);
+            loadSideData($(this), $(this).attr('data-mark'));
+        });
+
+        loadSideData($('.side_filter_box li:eq(0)'), '1');
+
+        function render(list, pageIndex, pageSize, totalCount) {
+            $('.side_list').empty();
+            for (var i = 0; i < list.length; i++) {
+                var _data = list[i];
+                var pointxy = _data.Pointxy;
+                _data.HotelIndex = i + 1;
+                var content = $('<div class="side_list_item"></div>');
+                var c = $('<div class="list_item_cont"></div>');
+                content.append(c);
+                var distance = '0 米';
+                if (_data.Distance < 2) {
+                    distance = Math.floor(_data.Distance * 1000) + "@Html.Lang("HotelDetail_0019")";
+                }
+                else {
+                    distance = Math.round(_data.Distance, 2) + "@Html.Lang("HotelDetail_0020")";
+                }
+                c.append('<span class="icon_num">' + numberMap['' + (1 + i)] + '</span>');
+                if (LanguageType == 'CHS') {
+                    c.append('<p class="item_title"><a href="javascript:void(0);" data-id="' + i + '" title="' + _data.Name + '">' + _data.Name + '</a></p><div data-id="' + i + '" class="bd"></div>');
+                } else {
+                    c.append('<p class="item_title"><a href="javascript:void(0);" data-id="' + i + '" title="' + _data.Name + '">' + _data.Name + '</a></p><div data-id="' + i + '" class="google"></div>');
+                }
+                
+                c.append('<p class="item_juli"><a href="javascript:void(0);">@Html.Lang("HotelDetail_0018")：@ViewData["hotelName"] ' + distance + '</a></p>');
+                $('.side_list').append(content);
+            }
+
+            var markers = $.fn.addHotelCircumMarkers(map, LanguageType, 1, '@ViewData["hotelName"]', pointX, pointY, list, cityId);
+
+            $('a', $('.side_list')).click(function () {
+                var i = $(this).attr('data-id');
+                markers[i].click();
+            });
+
+            $('.bd,.google').click(function () {
+                var i = $(this).attr('data-id');
+                markers[i].show();
+            });
+        }
+
+        function loadSideData(menu, mark) {
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetHotelCircumByHotelPoint", "HotelMap")',
+                traditional: true,
+                data: {
+                    cityId: cityId,
+                    pointx: pointX,
+                    pointy: pointY,
+                    mark: mark,
+                    pageIndex: $('#pageIndex').val(),
+                    pageSize: Number($('#pageSize').val())
+                },
+                beforeSend: function () {
+                    //$('#pageIndex').val('0');
+                },
+                success: function (data) {
+
+                    var totalCount = data.total;
+
+                    var pageSize = data.pageSize;
+                    var pageIndex = data.pageIndex;
+
+                    $("#p").pagination(totalCount, {
+                        callback: function (index, jq) {
+                            if (index != pageIndex) {
+                                $('#pageIndex').val(index);
+                                loadSideData(menu, mark)
+                            }
+                        },
+                        prev_text: "«",
+                        next_text: "»",
+                        items_per_page: pageSize,
+                        num_edge_entries: 1,
+                        num_display_entries: 3,
+                        current_page: pageIndex
+                    });
+
+                    render(data.list, pageIndex, pageSize, totalCount);
+
+                },
+                complete: function () {
+                }
+            });
+
+        }
+    });
+
+</script>
+
